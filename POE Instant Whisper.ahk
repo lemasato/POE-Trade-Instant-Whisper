@@ -137,7 +137,7 @@ Start_Script() {
 	Create_LogsFile()
 	Delete_OldLogsFile()
 
-	; UpdateCheck(1,1)
+	UpdateCheck(0, 1)
 
 	Create_TrayMenu()
 	ShellMessage_Enable()
