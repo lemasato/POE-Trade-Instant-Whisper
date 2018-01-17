@@ -55,7 +55,7 @@ Start_Script() {
 
 	; Set global - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	PROGRAM.NAME					:= "POE Instant Whisper"
-	PROGRAM.VERSION 				:= "0.0"
+	PROGRAM.VERSION 				:= "0.1"
 
 	PROGRAM.GITHUB_USER 			:= "lemasato"
 	PROGRAM.GITHUB_REPO 			:= "POETrade-Instant-Whisper"
