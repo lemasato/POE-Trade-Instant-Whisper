@@ -1,3 +1,5 @@
+## This is now part of [POE Trades Companion](https://github.com/lemasato/POE-Trades-Companion) as of v1.13.
+
 ## POETrade Instant Whisper
 Instantly send a poe.trade or poeapp.com whisper upon copy
 
