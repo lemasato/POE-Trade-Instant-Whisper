@@ -1,6 +1,6 @@
 ﻿Class INI {
 
-	Get(file, sect="", key="", getValues=False) {
+	Get(file, sect="", key="", getKeysAndValues=False) {
 
 		if (!sect) {
 			IniRead, allSections,% file
@@ -28,7 +28,7 @@
 			}
 			StringTrimRight, keysOnly, keysOnly, 1 ; Remove `n
 
-			if (getValues)	
+			if (getKeysAndValues)	
 				return keyAndValuesArr
 			else
 				return keysOnly
@@ -79,7 +79,7 @@
 			; No key provided.
 			; Copy content from one sect to another and delete the original.
 
-			keysAndValues := INI.Get(file, curSect, 1)
+			keysAndValues := INI.Get(file, curSect, , True)
 
 			IniDelete,% file,% curSect
 			for key, value in keysAndValues {

@@ -1,3 +1,17 @@
+/*
+	v2.1a (14 Aug 2018)
+		Changed ini setting with section PROGRAM and key Show_Changelogs to GENERAL and ShowChangelog
+
+	v2.1 (21 Dec 2017)
+		Added Download() and DL_Progress()
+		autohotkey.com/board/topic/17915-urldownloadtofile-progress/?p=584346
+
+	v2.0.1 (27 Nov 2017)
+		Fix: Only use FileDelete on .exe files.
+		Fix: The FileName key from the ini file only stores the file name.
+				Since the updater file is not always located in the same folder as the script,
+				we retrieve the script path from the /File_Name* parameter then add this path to the variable retrieved from the FileName ini key.
+*/
 #NoEnv
 #Persistent
 #SingleInstance Force
@@ -24,22 +38,7 @@ Start_Script() {
 	global ProgramValues := {}
 
 	Handle_CommandLine_Parameters()
-
-	ProgramValues.Local_Folder_Old_1 		:= userprofile "\Documents\AutoHotKey\POE Trades Helper\"
-	ProgramValues.Local_Folder_Old_2 		:= userprofile "\Documents\AutoHotKey\" ProgramValues.Name
-
 	Close_Program_Instancies()
-
-;	Deleting old POE Trades Helper folder is it exists
-	if InStr(FileExist(ProgramValues.Local_Folder_Old_1), "D") {
-		FileRemoveDir,% ProgramValues.Local_Folder_Old_1, 1
-	}
-
-;	Comparing userprofile\Documents and A_MyDocuments location. Move old location to new one.
-	if InStr(FileExist(ProgramValues.Local_Folder_Old_2), "D") && (ProgramValues.Local_Folder_Old_2 != ProgramValues.Local_Folder) {
-		FileMoveDir,% ProgramValues.Local_Folder_Old_2,% ProgramValues.Local_Folder, 2
-	}
-
 ;	Downloading the new version.
 	Download_New_Version()
 }
@@ -79,25 +78,30 @@ Close_Program_Instancies() {
 	IniRead, programPID,% ProgramValues.Ini_File,PROGRAM,PID
 	IniRead, fileName,% ProgramValues.Ini_File,PROGRAM,FileName
 
-	executables := programPID "|" fileName "|POE Trades Helper.exe|POE-Trades-Helper.exe"
-	Loop, Parse, executables, D|
-	{
-		Process, Close,% A_LoopField
-		Process, WaitClose,% A_LoopField
-		Sleep 1
+	fileNameAndPath := ProgramValues.File_Name
+	SplitPath, fileNameAndPath, , fileNameAndPath
+	fileNameAndPath := fileNameAndPath "\" fileName
 
-		SplitPath, A_LoopField, fileExt, , fileExt
-		if (fileExt != "ahk")
-			FileDelete,% A_LoopField
+	if (programPID && programPID != "ERROR") {
+		Process, Close,% programPID
+		Process, WaitClose,% programPID
 		Sleep 1
 	}
+
+	if (fileName && fileName != "ERROR") {
+		SplitPath, fileName, , , fileNameExt
+		if (fileNameExt = "exe")
+			FileDelete,% fileNameAndPath
+		Sleep 1
+	}
+	Sleep 1
 }
 
 Download_New_Version() {
 /*		Download the new version. Rename. Run.
 */
 	global ProgramValues
-	UrlDownloadToFile,% ProgramValues.NewVersion_Link,% ProgramValues.File_Name
+	Download(ProgramValues.NewVersion_Link, ProgramValues.File_Name)
 
 	if ( ErrorLevel ) {
 		funcParams := { Border_Color:"White"
@@ -112,7 +116,7 @@ Download_New_Version() {
 	}
 	Sleep 10
 	FileSetAttrib, -H,% ProgramValues.File_Name
-	IniWrite, 1,% ProgramValues.Ini_File,PROGRAM,Show_Changelogs
+	IniWrite, 1,% ProgramValues.Ini_File,GENERAL,ShowChangelog
 	Sleep 10
 	Run, % ProgramValues.File_Name
 }
@@ -198,8 +202,52 @@ Get_Control_Coords(guiName, ctrlHandler) {
 	return {X:coordsX,Y:coordsY,W:coordsW,H:coordsH}
 }
 
+Download(url, file) {
+/*		Credits to joedf
+		autohotkey.com/board/topic/17915-urldownloadtofile-progress/?p=584346
+*/
+	overwriteflag:=1
+
+	static vt
+	if !VarSetCapacity(vt)
+	{
+		VarSetCapacity(vt, A_PtrSize*11), nPar := "31132253353"
+		Loop Parse, nPar
+			NumPut(RegisterCallback("DL_Progress", "F", A_LoopField, A_Index-1), vt, A_PtrSize*(A_Index-1))
+	}
+	global _cu
+	SplitPath file, dFile
+	SysGet m, MonitorWorkArea, 1
+	y := mBottom-52-2, x := mRight-330-2, VarSetCapacity(_cu, 100), VarSetCapacity(tn, 520)
+	, DllCall("shlwapi\PathCompactPathEx", "str", _cu, "str", url, "uint", 50, "uint", 0)
+	; Seems the Progress parameters are what trigger the virustotal positive flags (?)
+	Progress Hide CW1A1A1A CTFFFFFF CB666666 x%x% y%y% w330 h52 B1 FS8 WM700 WS700 FM8 ZH12 ZY3 C11,, %_cu%, AutoHotkeyProgress, Tahoma
+	if (0 = DllCall("urlmon\URLDownloadToCacheFile", "ptr", 0, "str", url, "str", tn, "uint", 260, "uint", 0x10, "ptr*", &vt))
+	{
+		FileCopy %tn%, %file%, %overwriteflag%
+	}
+	else
+	{
+		ErrorLevel := 1
+	}
+	Progress Off
+	return !ErrorLevel
+}
+
+DL_Progress( pthis, nP=0, nPMax=0, nSC=0, pST=0 ) {
+	global _cu
+	if A_EventInfo = 6
+	{
+		Progress Show
+		Progress % P := 100*nP//nPMax, % "Downloading: " Round(np/1024,1) " KB / " Round(npmax/1024) " KB [ " P "`% ]", %_cu%
+	}
+	return 0
+}
+
+
 
 Exit_Func(ExitReason, ExitCode) {
 	if ExitReason not in Reload
 		ExitApp
 }
+

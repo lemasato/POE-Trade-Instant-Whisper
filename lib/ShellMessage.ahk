@@ -18,16 +18,14 @@ ShellMessage_State(state) {
 
 ShellMessage(wParam,lParam) {
 /*			Triggered upon activating a window
+ *			Is used to correctly position the Trades GUI while in Overlay mode
 */
-	global LAST_GAME_PID
-	gameProcesses := "PathOfExile.exe,PathOfExile_x64.exe,PathOfExileSteam.exe,PathOfExile_x64Steam.exe"
-
-	if ( wParam=4 or wParam=32772 ) { ; 4=HSHELL_WINDOWACTIVATED | 32772=HSHELL_RUDEAPPACTIVATED
+	global POEGameList
+	
+	if ( wParam=4 || wParam=32772 || wParam=5 ) { ; 4=HSHELL_WINDOWACTIVATED | 32772=HSHELL_RUDEAPPACTIVATED | 5=HSHELL_GETMINRECT 
 		WinGet, winPName, ProcessName, ahk_id %lParam%
-		if winPName in %gameProcesses%
-		{
-			WinGet, winPID, PID, ahk_id %lParam%
-			LAST_GAME_PID := winPID
-		}
+		if IsIn(winPName, POEGameList)
+			WinGet, LASTACTIVATED_GAMEPID, PID, ahk_id %lParam%
 	}
+	return
 }

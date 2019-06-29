@@ -1,5 +1,5 @@
 ﻿
-Get_ResourceSize(resourceName, dest) {
+Get_ResourceSize(resourceName) {
     if !hRes := DllCall("FindResource", Ptr, 0, Str, resourceName, Str, RT_RCDATA := "#10", Ptr)  {
       MsgBox, FindResource is failed, error: %A_LastError%
       ExitApp

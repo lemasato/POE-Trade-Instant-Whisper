@@ -1,0 +1,12 @@
+{
+	"enable" : true,
+	
+	"settings" : {
+		"skip_admin" : true,
+				
+		"skip_update_check" : false,
+		"force_update_check" : true,
+		
+		"skip_assets_extracting" : false
+	}
+}

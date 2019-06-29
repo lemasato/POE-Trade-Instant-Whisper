@@ -1,126 +1,115 @@
 ﻿#SingleInstance, Force
+#NoEnv
 
-; Main file - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+if (!A_IsAdmin) {
+	ReloadWithParams("", getCurrentParams:=True, asAdmin:=True)
+}
 
-FileRead, ver,%A_ScriptDir%/resources/version.txt
-ver := StrReplace(ver, "`n", "")
+; Basic tray menu
+if ( !A_IsCompiled && FileExist(A_ScriptDir "\resources\icon.ico") )
+	Menu, Tray, Icon, %A_ScriptDir%\resources\icon.ico
+Menu,Tray,Tip,POE Trade Instant Whisper - Converting release
+Menu,Tray,NoStandard
+Menu,Tray,Add,Close,Tray_Close
+Menu,Tray,Icon
+
+; Main file
+FileRead, ver,%A_ScriptDir%/resources/version.txt ; Get ver from txt
+ver := StrReplace(ver, "`n", "") ; Remove any possible linebreak
 ver = %ver% ; Auto trim
-
-verFull := ver
+ver := RegExReplace(ver, "[a-zA-Z]") ; Remove any possible alpha char
+ver := StrReplace(ver, "_", "99.") ; If _ detected (beta), use 99 as ver
 StringReplace ver,ver,`.,`.,UseErrorLevel
-Loop % 3-ErrorLevel {
-	verFull .= ".0"
-}
-desc := "POE Instant Whisper"
-inputFile := "POE Instant Whisper.ahk"
-outputFile := "POE Instant Whisper.exe"
 
-Run_Ahk2Exe(inputFile, ,A_ScriptDir "/resources/icon.ico")
-Set_FileInfos(outputFile, ver, desc, "© lemasato.github.io " A_YYYY)
-fileInfos := FileGetInfo(outputFile)
-while (fileInfos.FileVersion != verFull) {
-	fileInfos := FileGetInfo(outputFile)
-	Set_FileInfos(outputFile, ver, desc, "© lemasato.github.io " A_YYYY)
-	Sleep 500
-}
-fileInfos := ""
+; Main executable
+ToolTip, Compiling POE Trades Companion.exe
+CompileFile(A_ScriptDir "\POE Trades Companion.ahk", A_ScriptDir "\POE Trades Companion.exe")
+; CompileFile(A_ScriptDir "\POE Trades Companion.ahk", A_ScriptDir "\POE Trades Companion.exe", "POE Trades Companion", ver, "© lemasato.github.io " A_YYYY)
 
-; Updater file - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+; Updater file 
+; ToolTip, Compiling Updater.exe
+; CompileFile(A_ScriptDir "\Updater.ahk", A_ScriptDir "\Updater.exe")
+; CompileFile(A_ScriptDir "\Updater.ahk", A_ScriptDir "\Updater.exe", "POE Trades Companion: Updater", "1.0", "© lemasato.github.io " A_YYYY)
 
-ver := "2.1"
-verFull := ver
-StringReplace ver,ver,`.,`.,UseErrorLevel
-Loop % 3-ErrorLevel {
-	verFull .= ".0"
-}
-desc := "POE Instant Whisper: Updater"
-inputFile := "Updater_v2.ahk"
-outputFile := "Updater_v2.exe"
+; Updater file v2
+; ToolTip, Updater_v2.exe
+CompileFile(A_ScriptDir "\Updater_v2.ahk", A_ScriptDir "\Updater_v2.exe")
+; CompileFile(A_ScriptDir "\Updater_v2.ahk", A_ScriptDir "\Updater_v2.exe", "POE Trades Companion: Updater", "2.1", "© lemasato.github.io " A_YYYY)
 
-Run_Ahk2Exe(inputFile, ,A_ScriptDir "/resources/icon.ico")
-Set_FileInfos(outputFile, ver, desc, "© lemasato.github.io " A_YYYY)
-fileInfos := FileGetInfo(outputFile)
-while (fileInfos.FileVersion != verFull) {
-	fileInfos := FileGetInfo(outputFile)
-	Set_FileInfos(outputFile, ver, desc, "© lemasato.github.io " A_YYYY)
-	Sleep 500
-}
-fileInfos := ""
 
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-
+; End
 SoundPlay, *32
 ToolTip, Compile Success
 Sleep 1500
 ToolTip
 ExitApp
+Return
 
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+; - - - - - - - - - -
 
+Esc::ExitApp
 
-Run_Ahk2Exe(fileIn, fileOut="", fileIcon="", mpress=0, binFile="Unicode 32-bit.bin") {
-	ahk2ExePath := A_ProgramFiles "\AutoHotkey\Compiler\Ahk2Exe.exe"
+Tray_Close:
+ExitApp
+Return
 
+CompileFile(source, dest, fileDesc="NONE", fileVer="NONE", fileCopyright="NONE") {
+    Run_Ahk2Exe(source, ,A_ScriptDir "\resources\icon.ico")
 
-	SplitPath, fileIn, , fileInDir, , fileInNoExt
-	SplitPath, fileOut, , fileOutDir, , fileOutNoExt
+	if (fileDesc != "NONE" || fileVer != "NONE" || fileCopyright != "NONE") {
+		StringReplace fileVer,fileVer,`.,`.,UseErrorLevel
+		Loop % 3-ErrorLevel {
+			fileVer .= ".0"
+		}
 
-	if (!fileInDir)
-		fileInDir := A_ScriptDir
-	if (!fileOutDir)
-		fileOutDir := fileInDir
-
-	fileInParam := " /in " """" fileIn """"
-	fileOutParam := (fileOut)?(fileOutDir "\" fileOut):(fileOutDir "\" fileInNoExt ".exe")
-	fileOutParam := " /out " """" fileOutParam """"
-
-	fileIconParam := (fileIcon)?(" /icon " """" fileIcon """"):("")
-
-	mpressParam := (mpress)?(" /mpress 1"):(" /mpress 0")
-
-	binParam := (binFile)?(" /bin" """" binFile """"):("")
-	if (binFile && !FileExist(A_ProgramFiles "\AutoHotkey\Compiler\" binFile))
-		MsgBox % binFile " not found in " A_ProgramFiles "\AutoHotkey\Compiler\"
-
-	RunWait, %ahk2ExePath% %fileInParam% %fileOutParam% %fileIconParam% %mpressParam% %binFileParam% ,,Hide
+		Set_FileInfos(dest, fileVer, fileDesc, fileCopyright)
+		destVer := FGP_Value(dest, 167) ; 167 = Ver
+		destDesc := FGP_Value(dest, 34) ; 34 = Desc
+		destCpyR := FGP_Value(dest, 25) ; 25 = Copyright
+		while (destVer != fileVer) {
+			ToolTip,% "Attempt #" A_Index+1
+			.   "`nFailed to set file infos."
+			.   "`nFile: " dest
+			.   "`n"
+			.   "`nFile Version: " fileVer 
+			.   "`nCurrent: " destVer
+			.   "`n"
+			.   "`nFile Description: " fileDesc 
+			.   "`nCurrent: " destDesc
+			.   "`n"
+			.   "`nCopyright: " fileCopyright
+			.   "`nCurrent: " destCpyR
+			Set_FileInfos(dest, fileVer, fileDesc, fileCopyright)
+			Sleep 500
+			destVer := FGP_Value(dest, 167) ; 167 = Ver
+		}
+		ToolTip,
+		fileInfos := ""
+	}
 }
 
-Set_FileInfos(file, version="", desc="", copyright="", adds="") {
-	if !FileExist("verpatch.exe") {
-		MsgBox verpatch.exe not found! Operation aborted.
-		ExitApp
+ReloadWithParams(params, getCurrentParams=False, asAdmin=False) {
+	if (getCurrentParams) {
+		params .= " " Get_CmdLineParameters()
 	}
 
-	if (version) {
-		versionArr := StrSplit(version, ".")
-	}
-	Loop % 4- versionArr.MaxIndex() { ; File version requires four numbers
-		version .= ".0"
-	}
+	if (asAdmin)
+		runMode := "RunAs"
+	else runMode := ""
 
-	args := "/high"
-	args .= (version)?(" """ version """"):("")
-	args .= (desc)?(" /s desc """ desc """"):("")
-	args .= (product)?(" /s product """ product """"):("")
-	args .= (copyright)?(" /s copyright """ copyright """"):("")
-
-	RunWait, verpatch.exe "%file%" %args% %adds%,,Hide
+	Sleep 10
+	DllCall("shell32\ShellExecute" (A_IsUnicode ? "":"A"),uint,0,str,runMode,str,(A_IsCompiled ? A_ScriptFullPath
+	: A_AhkPath),str,(A_IsCompiled ? "": """" . A_ScriptFullPath . """" . A_Space) params,str,A_WorkingDir,int,1)
+	ExitApp
+	Sleep 10000
 }
 
-FileGetInfo( lptstrFilename) {
-/*	MsgBox % FileGetInfo( comspec ).CompanyName
-	MsgBox % FileGetInfo( A_WinDir "\system32\calc.exe" ).FileDescription
-*/
-	List := "Comments InternalName ProductName CompanyName LegalCopyright ProductVersion"
-		. " FileDescription LegalTrademarks PrivateBuild FileVersion OriginalFilename SpecialBuild"
-	dwLen := DllCall("Version.dll\GetFileVersionInfoSize", "Str", lptstrFilename, "Ptr", 0)
-	dwLen := VarSetCapacity( lpData, dwLen + A_PtrSize)
-	DllCall("Version.dll\GetFileVersionInfo", "Str", lptstrFilename, "UInt", 0, "UInt", dwLen, "Ptr", &lpData) 
-	DllCall("Version.dll\VerQueryValue", "Ptr", &lpData, "Str", "\VarFileInfo\Translation", "PtrP", lplpBuffer, "PtrP", puLen )
-	sLangCP := Format("{:04X}{:04X}", NumGet(lplpBuffer+0, "UShort"), NumGet(lplpBuffer+2, "UShort"))
-	i := {}
-	Loop, Parse, % List, %A_Space%
-		DllCall("Version.dll\VerQueryValue", "Ptr", &lpData, "Str", "\StringFileInfo\" sLangCp "\" A_LoopField, "PtrP", lplpBuffer, "PtrP", puLen )
-		? i[A_LoopField] := StrGet(lplpBuffer, puLen) : ""
-	return i
-}
+#Include %A_ScriptDir%\lib\
+#Include CmdLineParameters.ahk
+#Include CompileAhk2Exe.ahk
+#Include EasyFuncs.ahk
+#Include SetFileInfos.ahk
+#Include WindowsSettings.ahk
+
+#Include %A_ScriptDir%\lib\third-party\
+#Include FGP.ahk

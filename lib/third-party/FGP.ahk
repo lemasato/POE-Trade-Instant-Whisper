@@ -48,6 +48,66 @@ FGP_Init() {
 }
 
 
+/*  FGP_List(FilePath)
+ *		Gets all of a file's non-blank properties.
+ *	Parameters
+ *		FilePath	- The full path of a file.
+ *	Returns
+ *		An object with the following format:
+ *			PropList.CSV				:= "PropNum,PropName,PropVal`r`n..."
+ *			PropList.Name["PropName"]	:= PropVal
+ *			PropList.Num[PropNum]		:= PropVal
+ */
+FGP_List(FilePath) {
+	static PropTable := FGP_Init()
+	SplitPath, FilePath, FileName, DirPath
+	oShell := ComObjCreate("Shell.Application")
+	oFolder := oShell.NameSpace(DirPath)
+	oFolderItem := oFolder.ParseName(FileName)
+	PropList := {CSV: "", Name: {}, Num: {}}
+	for PropNum, PropName in PropTable.Num
+		if (PropVal := oFolder.GetDetailsOf(oFolderItem, PropNum)) {
+			PropList.Num[PropNum] := PropVal
+			PropList.Name[PropName] := PropVal
+			PropList.CSV .= PropNum "," PropName "," PropVal "`r`n"
+		}
+	PropList.CSV := RTrim(PropList.CSV, "`r`n")
+	return PropList
+}
+
+
+/*  FGP_Name(PropNum)
+ *		Gets a property name based on the property number.
+ *	Parameters
+ *		PropNum		- The property number.
+ *	Returns
+ *		If succesful the file property name is returned. Otherwise:
+ *		-1			- The property number does not have an associated name.
+ */
+FGP_Name(PropNum) {
+	static PropTable := FGP_Init()
+	if (PropTable.Num[PropNum] != "")
+		return PropTable.Num[PropNum]
+	return -1
+}
+
+
+/*  FGP_Num(PropName)
+ *		Gets a property number based on the property name.
+ *	Parameters
+ *		PropName	- The property name.
+ *	Returns
+ *		If succesful the file property number is returned. Otherwise:
+ *		-1			- The property name does not have an associated number.
+ */
+FGP_Num(PropName) {
+	static PropTable := FGP_Init()
+	if (PropTable.Name[PropName] != "")
+		return PropTable.Name[PropName]
+	return -1
+}
+
+
 /*  FGP_Value(FilePath, Property)
  *		Gets a file property value.
  *	Parameters

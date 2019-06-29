@@ -1,32 +1,147 @@
-﻿Set_LocalSettings() {
+﻿LocalSettings_VerifyEncoding() {
 	global PROGRAM
 	iniFile := PROGRAM.INI_FILE
 
-	;_TO_BE_ADDED_
+	hINI := FileOpen(iniFile, "r")
+	if (hINI.Encoding != "UTF-16") {
+		AppendToLogs(A_ThisFunc "(): Wrong ini file encoding (" hINI.Encoding "). Making backup and creating new file with UTF-16 encoding.")
+		data := hINI.Read()
+		hINI.Close()   
+
+		SplitPath, iniFile, , folder
+		FileMove,% iniFile,% folder "\" A_Now "_Preferences.ini", 1
+
+		hINI2 := FileOpen(iniFile, "w", "UTF-16")
+		hINI2.Write(Data)
+	}
+}
+
+Get_LocalSettings_DefaultValues() {
+	global PROGRAM
+
+	settings := {}
+
+	settings.SECTIONS_ORDER := "UPDATING"
+
+	hw := A_DetectHiddenWindows
+	DetectHiddenWindows, On
+	WinGet, fileProcessName, ProcessName,% "ahk_pid " DllCall("GetCurrentProcessId")
+	DetectHiddenWindows, %hw%
+	settings.UPDATING 																	:= {}
+	settings.UPDATING.PID 																:= DllCall("GetCurrentProcessId")
+	settings.UPDATING.FileName 															:= A_ScriptName
+	settings.UPDATING.FileProcessName 													:= fileProcessName
+	settings.UPDATING.ScriptHwnd 														:= A_ScriptHwnd
+	settings.UPDATING.Version 															:= PROGRAM.VERSION
+	settings.UPDATING.UseBeta															:= "False"
+	settings.UPDATING.CheckForUpdatePeriodically 										:= "OnStartAndEveryFiveHours"
+	settings.UPDATING.LastUpdateCheck 													:= "19940426000000"
+	settings.UPDATING.DownloadUpdatesAutomatically 										:= "True"
+
+	return settings
+}
+
+LocalSettings_IsValueValid(iniSect, iniKey, iniValue) {
+	global PROGRAM
+
+	isFirstTimeRunning := INI.Get(PROGRAM.INI_FILE, "GENERAL", "IsFirstTimeRunning")
+
+	if (iniSect = "UPDATING") {
+		if (iniKey = "CheckForUpdatePeriodically")
+			isValueValid := IsIn(iniValue, "OnStartOnly,OnStartAndEveryFiveHours,OnStartAndEveryDay") ? True : False
+		else if (iniKey = "LastUpdateCheck") {
+			FormatTime, timeF, %iniValue%, yyyyMMddhhmmss
+			isValueValid := (iniValue > A_Now || timeF > A_Now || StrLen(iniValue) != 14)?False : True
+		}
+		else if IsIn(iniKey, "UseBeta,DownloadUpdatesAutomatically")
+			isValueValid := IsIn(iniValue,"True,False") ? True : False
+		else
+			isValueValid := True
+	}
+
+	if (isValueValid = "") {
+		MsgBox %A_ThisFunc%(): Couldn't find if statement for:`niniSect: %iniSect%`niniKey: %iniKey%`niniValue: %iniValue%
+	}
+
+	return isValueValid
+}
+
+Restore_LocalSettings(iniSect, iniKey="") {
+	global PROGRAM
+	iniFile := PROGRAM.INI_FILE
+
+	defSettings := Get_LocalSettings_DefaultValues()
+
+	if (iniKey = "") { ; Replace entire section
+		for key, value in PROGRAM.SETTINGS[iniSect]
+			INI.Remove(iniFile, iniSect, key)
+
+		for key, value in defSettings[iniSect]
+			INI.Set(iniFile, iniSect, key, value)
+	}
+	else {
+		INI.Set(iniFile, iniSect, iniKey, defSettings[iniSect][iniKey])
+	}
+}
+
+Set_LocalSettings() {
+	global PROGRAM
+	iniFile := PROGRAM.INI_FILE
 
 	if !FileExist(iniFile)
-		FileAppend, ,% iniFile
+		FileAppend,`n,% iniFile
 
-	sect := "PROGRAM"
-	keysAndValues := {	Version:PROGRAM.VERSION
-						,Last_Update_Check:"1994042612310000"
-						,FileName:A_ScriptName
-						,PID:PROGRAM.PID}
+	settingsDefaultValues := Get_LocalSettings_DefaultValues()
+	sectsOrder := settingsDefaultValues.SECTIONS_ORDER
+	localSettings := Get_LocalSettings()
 
-	for iniKey, iniValue in keysAndValues {
-		curValue := INI.Get(iniFile, sect, iniKey)
+	Restore_LocalSettings("UPDATING", "ScriptHwnd")
+	Restore_LocalSettings("UPDATING", "FileProcessName")
+	Restore_LocalSettings("UPDATING", "FileName")
+	Restore_LocalSettings("UPDATING", "PID")
 
-		if (iniKey = "Last_Update_Check") { ; Make sure value is time format
-			EnvAdd, curValue, 1, Seconds
-			if !(curValue) || (curValue = 1)
-				curValue := "ERROR"
+	Loop 5 {
+		btnIndex := A_Index
+		for key, value in localSettings["SETTINGS_CUSTOM_BUTTON_" A_Index]
+			doesCustBtn%btnIndex%Exist := True
+	}
+
+	; Set the order to go through sections
+	order := ""
+	Loop, Parse, sectsOrder,% ","
+	{
+		loopedSect := A_LoopField
+		for iniSect, nothing in settingsDefaultValues {
+			if IsContaining(iniSect, loopedSect) && !IsIn(iniSect, order)
+				order .= iniSect ","
 		}
-		if IsIn(iniKey, "FileName,PID") ; These values are instance specific
-			curValue := "ERROR"
+	}
+	StringTrimRight, order, order, 1
+	; Make sure each value is valid
+	Loop, Parse, order,% ","
+	{
+		iniSect := A_LoopField
+		for iniKey, defValue in settingsDefaultValues[iniSect] {
+			iniValue := localSettings[iniSect][iniKey]
+			isValueValid := LocalSettings_IsValueValid(iniSect, iniKey, iniValue)
+			isValueValid := True ; Bypass for this tool
 
-		if (curValue = "ERROR" || curValue = "") {
-			INI.Set(iniFile, sect, iniKey, iniValue)
+			if (!isValueValid) {
+				warnMsg .= "Section: " iniSect "`nKey: " iniKey "`nValue: " iniValue "`nDefault value: " defValue "`n`n"
+				Restore_LocalSettings(iniSect, iniKey)
+			}
 		}
+	}
+	; Show which values were restored to default
+	if (warnMsg) {
+		Gui, ErrorLog:New, +AlwaysOnTop +ToolWindow +hwndhGuiErrorLog
+		Gui, ErrorLog:Add, Text, x10 y10,% "One or multiple ini entries were deemed invalid and were reset to their default value."
+		Gui, ErrorLog:Add, Edit, xp y+5 w500 R25 ReadOnly,% warnMsg
+		Gui, ErrorLog:Add, Link, xp y+5,% "If you need assistance, you can contact me on: "
+		. "<a href=""" PROGRAM.LINK_GITHUB """>GitHub</a> - <a href=""" PROGRAM.LINK_REDDIT """>Reddit</a> - <a href=""" PROGRAM.LINK_GGG """>PoE Forums</a> - <a href=""" PROGRAM.LINK_DISCORD """>Discord</a>"
+		Gui, ErrorLog:Show,xCenter yCenter,% PROGRAM.NAME " - Error log"
+		WinWait, ahk_id %hGuiErrorLog%
+		WinWaitClose, ahk_id %hGuiErrorLog%
 	}
 }
 
@@ -41,44 +156,51 @@ Get_LocalSettings() {
 
 		arr := INI.Get(iniFile, A_LoopField,,1)
 		for key, value in arr {
+			isActionContent := RegExMatch(A_LoopField, "SETTINGS_CUSTOM_BUTTON_.*") && RegExMatch(key, "Action_.*_Content") ? True
+				: RegExMatch(A_LoopField, "SETTINGS_HOTKEY_ADV_.*") && RegExMatch(key, "Action_.*_Content") ? True
+				: RegExMatch(A_LoopField, "SETTINGS_HOTKEY_.*") && key="Content" ? True
+				: False
+
+			if (isActionContent) {
+				StringTrimLeft, value, value, 1
+				StringTrimRight, value, value, 1
+			}
 			settingsObj[A_LoopField][key] := value
 		}
 	}
 
-	; PROGRAM.OS := {}
-	; PROGRAM.OS.RESOLUTION_DPI := Get_DpiFactor()
+	/*	No longer used
+	PROGRAM.OS := {}
+	PROGRAM.OS.RESOLUTION_DPI := Get_DpiFactor()
+	*/
 
 	return settingsObj
 }
 
 Update_LocalSettings() {
-	global ProgramValues
+	global PROGRAM
+	iniFile := PROGRAM.INI_FILE
 
-	;_TO_BE_ADDED_
+	priorVer := Ini.Get(iniFile, "UPDATING", "Version", "UNKNOWN")
+	priorVerNum := (priorVer="UNKNOWN")?(PROGRAM.Version):(priorVer)
+	subVersions := StrSplit(priorVerNum, ".")
+	mainVer := subVersions[1], releaseVer := subVersions[2], patchVer := subVersions[3]
 
-	; Delete ExternalOverlay folder from 0.1 version. Is is now called NSO Overlay
-	; if InStr(FileExist(ProgramValues.Resources_Folder "\ExternalOverlay"), "D") 
-	; 	FileRemoveDir,% ProgramValues.Resources_Folder "\ExternalOverlay", 1
+	localSettings := Get_LocalSettings()
 
-	; ; Rename External_Overlay ini entries to NSO_Overlay
-	; INI.Rename(ProgramValues.Ini_File, "External_Overlay", , "NSO_Overlay")
-	; sects := INI.Get(ProgramValues.Profiles_File)
-
-	; Loop, Parse,% sects, "`n"
-	; {
-	; 	nsoValue := INI.Get(ProgramValues.Profiles_File, A_LoopField, "Use_NSO_Overlay")
-	; 	if (nsoValue=1 || nsoValue=0)
-	; 		INI.Remove(ProgramValues.Profiles_File, A_LoopField, "Use_External_Overlay")
-	; 	else
-	; 		INI.Rename(ProgramValues.Profiles_File, A_LoopField, "Use_External_Overlay", A_LoopField, "Use_NSO_Overlay")
-	; }
+	Restore_LocalSettings("UPDATING", "Version")
+	
+	if (PROGRAM.IS_BETA = "True")
+		INI.Set(iniFile, "UPDATING", "UseBeta", "True")
 }
 
-Declare_LocalSettings(settingsObj) {
+Declare_LocalSettings(settingsObj="") {
 	global PROGRAM
 
-	if !(PROGRAM.SETTINGS)
-		PROGRAM.SETTINGS := {}
+	if (settingsObj = "")
+		settingsObj := Get_LocalSettings()
+
+	PROGRAM["SETTINGS"] := {}
 
 	for iniSection, nothing in settingsObj {
 		PROGRAM["SETTINGS"][iniSection] := {}

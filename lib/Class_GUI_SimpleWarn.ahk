@@ -17,7 +17,7 @@
 					:(!_title && _msg)?(msgTexTSize.H+(2*yOffset))
 					:(titleTextSize.H+msgTexTSize.H-(2*yOffset))
 
-		Gui.New("SimpleWarn", "+AlwaysOnTop +ToolWindow -Caption -Border +LabelGUI_SimpleWarn_ +HwndhGuiSimpleWarn", "SimpleWarn")
+		Gui.New("SimpleWarn", "+AlwaysOnTop +ToolWindow -Caption -Border +LabelGUI_SimpleWarn_ +HwndhGuiSimpleWarn", "POE Trade Instant Whisper - Warning")
 		Gui.Margin("SimpleWarn", 0, 0)
 		
 		Gui.Color("SimpleWarn", _colorBckgrnd)
@@ -79,7 +79,7 @@
 		Return
 
 		GUI_SimpleWarn_Close:
-			Gui.Destroy("SimpleWarn")
+			Gui_SimpleWarn.Destroy()
 		Return
 		GUI_SimpleWarn_Escape:
 			GoSub GUI_SimpleWarn_Close
@@ -95,7 +95,3 @@
 		Gui.Destroy("SimpleWarn")
 	}
 }
-
-#SingleInstance, Force
-#Include Easyfuncs.ahk
-#Include Class_GUI.ahk

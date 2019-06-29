@@ -1,4 +1,307 @@
-﻿Set_Format(_NumberType="", _Format="") {
+﻿PlaySound(sndFile) {
+	; 0x1 allows sound to be interrupted by next one
+	return DllCall("winmm.dll\PlaySound", AStr, sndFile, UInt, 0, UInt, 0x1)
+}
+
+IsWindowInScreenBoundaries(_win, _screen="All", _adv=False) {
+/*	Returns whether at least 1/3 of the window is within the screen or not
+*/
+	hiddenWin := A_DetectHiddenWindows
+	DetectHiddenWindows, On
+
+	WinGetPos, x, y, w, h,% _win
+	win := {x:x,y:y,h:h,w:w}
+
+	DetectHiddenWindows, %hiddenWin%
+
+	mons := {}
+	if (_screen="All") { ; get all mons wa into their own sub array
+		SysGet, monCount, MonitorCount
+		Loop %monCount% {
+			SysGet, mon, Monitor, %A_Index%
+			mons[A_Index] := {T:monTop,B:monBottom,L:monLeft,R:monRight}
+		}	
+	}
+	else { ; only selected monitor into its own sub array
+		SysGet, mon, Monitor, %_screen%
+		mons.1 := {T:monTop,B:monBottom,L:monLeft,R:monRight}
+	}
+
+	if (_adv)
+		advObj := {}
+	for monIndex, nothing in mons { ; for every subarray
+		mon := mons[monIndex]
+
+		; check if 1/3 of window is in horizontal boundaries
+		if (win.x < mon.l) ; left 
+			hor := IsBetween(win.x+win.w/1.5, mon.l, mon.r)
+		else ; right
+			hor := IsBetween(win.x+win.w/3, mon.l, mon.r)
+		; check if 1/3 of window is in vertical boundaries
+		if (win.y < mon.t) ; top
+			ver := IsBetween(win.y+win.h/1.5, mon.t, mon.b)
+		else ; bottom
+			ver := IsBetween(win.y+win.h/3, mon.t, mon.b)
+
+		isInHor := hor=True?True:isInHor
+		isInVer := ver=True?True:isInVer
+
+		if (_adv)
+			advObj[monIndex] := {"Mon_T": mon.t, "Mon_B": mon.b, "Mon_L": mon.l, "Mon_R": mon.r
+				, "Win_X": win.x, "Win_Y": win.y, "Win_W": win.w, "Win_H": win.h
+				, "IsInBoundaries_H": hor, "IsInBoundaries_V": ver}
+	}
+	if (isInHor=True && isInVer=True && _adv=False)
+		return True
+
+	if (_adv)
+		return advObj
+}
+
+GetKeyStateFunc(which) {
+
+	if (which = "All") {
+		shiftState := (GetKeyState("Shift"))?("Down"):("Up")
+		shiftStateL := (GetKeyState("LShift"))?("Down"):("Up")
+		shiftStateR := (GetKeyState("RShift"))?("Down"):("Up")
+
+		ctrlState := (GetKeyState("Ctrl"))?("Down"):("Up")
+		ctrlStateL := (GetKeyState("LCtrl"))?("Down"):("Up")
+		ctrlStateR := (GetKeyState("RCtrl"))?("Down"):("Up")
+
+		altState := (GetKeyState("Alt"))?("Down"):("Up")
+		altStateL := (GetKeyState("LAlt"))?("Down"):("Up")
+		altStateR := (GetKeyState("RAlt"))?("Down"):("Up")
+
+		WinStateL := (GetKeyState("LWin"))?("Down"):("Up")
+		WinStateR := (GetKeyState("RWin"))?("Down"):("Up")
+
+		obj := {Shift: shiftState, LShift: shiftStateL, RShift: shiftStateR
+			, Ctrl: ctrlState, LCtrl: ctrlStateL, RCtrl: ctrlStateR
+			, Alt: altState, LAlt: altStateL, RAlt: altStateR
+			, LWin: WinStateL, RWin: WinStateR}
+
+		return obj
+	}
+	else {
+		obj := {}
+		Loop, Parse, which,% ","
+		{
+			key := A_LoopField, _count := A_Index
+			%key%State := (GetKeyState(key))?("Down"):("Up")
+			obj[key] := %key%State
+		}
+
+		if (_count = 1) {
+			return %key%State
+		}
+		else 
+			return obj
+	}
+}
+
+SetKeyStateFunc(which) {
+	for key, state in which
+		str .= "{" key " " state "}"
+
+	if (str)
+		Send %str%
+}
+
+GetWindowClientInfos(winName) {
+/*	Source:
+		noname: 		http://autohotkey.com/board/topic/77915-get-client-window/?p=495250
+		arcaine.net: 	http://arcaine.net/l2/AtomixMacro/Unsupported/CP&CTRL.ahk
+						http://arcaine.net/l2/AtomixMacro/AtomixMacro.ahk
+
+    Edited to add support on AHK U64
+
+	Allows to get a window client infos
+*/
+    WinGet, hwnd , ID, %winName%
+
+    WinGetPos, , , , Window_Height, ahk_id %hwnd%
+    VarSetCapacity(rcClient, 12+A_PtrSize, 0)          ; rcClient Structure 
+    DllCall("user32\GetClientRect","uint", hwnd ,"uint",&rcClient)  
+    rcClient_x   := NumGet(rcClient, 0, "int")
+    rcClient_y   := NumGet(rcClient, 4, "int")
+    rcClient_r   := NumGet(rcClient, 8, "int")
+    rcClient_b   := NumGet(rcClient, 12, "int")
+
+    VarSetCapacity(pwi, 64+A_PtrSize, 0)
+    DllCall("GetWindowInfo", "UInt", hwnd, "UInt", &pwi)
+    
+    bx := NumGet(pwi, 48, "int") ; border width
+    by := NumGet(pwi, 52, "int") ; border height
+    RealX := bx
+    RealY := Window_Height - by - rcClient_b
+    RealWidth := rcClient_r
+    RealHeight := rcClient_b
+
+    return {X:RealX, Y:Realy, W:RealWidth, H:RealHeight}
+}
+
+
+RemoveTrailingZeroes(num) {
+	num := RTrim(num, "0")
+	if ( SubStr(num, 0) = "." ) {
+		StringTrimRight, num, num, 1
+	}
+	return num
+}
+
+MultiplyBy(byWhat, ByRef num1, ByRef num2="", ByRef num3="", ByRef num4="", ByRef num5="", ByRef num6="", ByRef num7="", ByRef num8="", ByRef num9="", ByRef num10="") {
+	num1 *= byWhat
+	num2 *= byWhat
+	num3 *= byWhat
+	num4 *= byWhat
+	num5 *= byWhat
+	num6 *= byWhat
+	num7 *= byWhat
+	num8 *= byWhat
+	num9 *= byWhat
+	num10 *= byWhat
+}
+
+RandomStr(l = 24, i = 48, x = 122) { ; length, lowest and highest Asc value
+	/*	Credits: POE-TradeMacro
+		https://github.com/PoE-TradeMacro/POE-TradeMacro
+	*/
+	Loop, %l% {
+		Random, r, i, x
+		s .= Chr(r)
+	}
+	s := RegExReplace(s, "\W", "i") ; only alphanum.
+	
+	Return, s
+}
+
+Transform_ReadableHotkeyString_Into_AHKHotkeyString(_hotkey, _delimiter="+") {
+	len := StrLen(_hotkey)
+    Loop 2 {
+        mainLoopIndex := A_Index
+        Loop, Parse,% _hotkey,% _delimiter
+        {
+            parseIndex := A_Index
+
+            if (mainLoopIndex = 1) 
+                parseTotal := parseIndex
+            else {
+                firstChar := SubStr(A_LoopField, 1, 1)
+                if IsIn(A_LoopField, "Ctrl,LCtrl,RCtrl") && (parseIndex < parseTotal)
+                    mod .= firstChar = "L" ? "<^" : firstChar = "R" ? ">^" : "^"
+                else if IsIn(A_LoopField, "Shift,LShift,RShift") && (parseIndex < parseTotal)
+                    mod .= firstChar = "L" ? "<+" : firstChar = "R" ? ">+" : "+"
+                else if IsIn(A_LoopField, "Alt,LAlt,RAlt") && (parseIndex < parseTotal)
+                    mod .= firstChar = "L" ? "<!" : firstChar = "R" ? ">!" : "!"
+                else if IsIn(A_LoopField, "LWin,RWin") && (parseIndex < parseTotal)
+                    mod .= "#" ; firstChar = "L" ? "<#" : firstChar = "R" ? ">#" : "#"
+                else
+                    hk := A_LoopField
+            }
+        }
+    }
+
+    lastChar := SubStr(_hotkey, 0, 1)
+    if (lastChar = _delimiter) && (hk = "")
+        hk := lastChar
+
+    fullHk := mod . hk
+    return fullHk
+}
+
+Transform_AHKHotkeyString_Into_InputSring(_hotkey) {
+	readable := Transform_AHKHotkeyString_Into_ReadableHotkeyString(_hotkey)
+	len := StrLen(_hotkey), inputsObj := {}
+    Loop 2 {
+        mainLoopIndex := A_Index
+        Loop, Parse,% readable,% "+"
+        {
+            parseIndex := A_Index
+
+            if (mainLoopIndex = 1) 
+                parseTotal := parseIndex
+            else {
+                firstChar := SubStr(A_LoopField, 1, 1)
+                if IsIn(A_LoopField, "Ctrl,LCtrl,RCtrl") && (parseIndex < parseTotal)
+                    inputsObj.Push(A_LoopField)
+                else if IsIn(A_LoopField, "Shift,LShift,RShift") && (parseIndex < parseTotal)
+                    inputsObj.Push(A_LoopField)
+                else if IsIn(A_LoopField, "Alt,LAlt,RAlt") && (parseIndex < parseTotal)
+                    inputsObj.Push(A_LoopField)
+                else if IsIn(A_LoopField, "LWin,RWin") && (parseIndex < parseTotal)
+                    inputsObj.Push(A_LoopField)
+                else
+                    inputsObj.Push(A_LoopField)
+            }
+        }
+    }
+
+	for index, _input in inputsObj {
+        downInputs .= "{" _input " Down}"
+        upInputs := "{" _input " Up}" upInputs
+    }
+
+	downAndUpInputs := downInputs . upInputs
+    return downAndUpInputs
+}
+
+Transform_AHKHotkeyString_Into_ReadableHotkeyString(_hotkey, _delimiter="+") {
+	len := StrLen(_hotkey)
+
+	Loop, Parse,% _hotkey
+    {
+        parseIndex := A_Index
+        curChar := A_LoopField, nextChar := SubStr(_hotkey, parseIndex+1, 1), curAndNextChars := curChar . nextChar
+
+        if (skipNextChar) {
+            skipNextChar := False
+        }
+        else if IsIn(curAndNextChars, "<^,>^,<!,>!,<+,>+,<#,>#") {
+            mod := curChar = "<" ? "L" : curChar = ">" ? "R" : ""
+            mod .= nextChar = "^" ? "Ctrl" : nextChar = "!" ? "Alt" : nextChar = "+" ? "Shift" : nextChar = "#" ? "Win" : ""
+            modStr .= modStr ? "+" mod : mod
+            skipNextChar := True
+        }
+        else if IsIn(curChar, "^,!,+,#") && (parseIndex < len) {
+            mod := curChar = "^" ? "Ctrl" : curChar = "!" ? "Alt" : curChar = "+" ? "Shift" : curChar = "#" ? "Win" : ""
+            modStr .= modStr ? "+" mod : mod
+        }
+        else {
+            hk := SubStr(_hotkey, parseIndex)
+            StringUpper, hk, hk, T
+            Break
+        }
+    }
+
+    hkStr := modStr ? modStr "+" hk : hk
+    return hkStr
+}
+
+Get_UnderMouse_CtrlHwnd() {
+	MouseGetPos, , , , ctrlHwnd, 2
+	return ctrlHwnd
+}
+
+AutoTrimStr(ByRef string1, ByRef string2="", ByRef string3="", ByRef string4="", ByRef string5="", ByRef string6="", ByRef string7="", ByRef string8="", ByRef string9="", ByRef string10="") {
+	_autotrim := A_AutoTrim
+	AutoTrim, On
+
+	string1 = %string1%
+	string2 = %string2%
+	string3 = %string3%
+	string4 = %string4%
+	string5 = %string5%
+	string6 = %string6%
+	string7 = %string7%
+	string8 = %string8%
+	string9 = %string9%
+	string10 = %string10%
+
+	AutoTrim, %_autotrim%
+}
+
+Set_Format(_NumberType="", _Format="") {
 	static prevNumberType, prevFormat
 	prevNumberType := _NumberType
 	prevFormat := A_FormatFloat
@@ -116,6 +419,22 @@ Get_Windows_List(_filter, _filterType, _delimiter, _what) {
 	Return returnList
 }
 
+IsContaining_Parse(_string, _list, _delimiter="`n", _ignore="`r", _getMatch=False) {
+	Loop, Parse, _list,%_delimiter%,%_ignore%
+		if IsContaining(_string, A_LoopField) {
+			if (_getMatch=True)
+				return [True, A_LoopField]
+			else
+				return True
+		}
+}
+
+IsIn_Parse(_string, _list, _delimiter="`n", _ignore="`r") {
+	Loop, Parse, _list,%_delimiter%,%_ignore%
+		if (A_LoopField = _string)
+			return True
+}
+
 IsIn(_string, _list) {
 	if _string in %_list%
 		return True
@@ -174,6 +493,46 @@ Convert_TrueFalse_String_To_Value(ByRef value) {
 	value := (value="True")?(True):(value="False")?(False):(value)
 }
 
+Get_MatchingValue_From_Object_Using_Index(obj, specifiedIndex) {
+	matchingValue := ""
+	for index, value in obj {
+		if (index = specifiedIndex) {
+			matchingValue := value
+			Break
+		}
+	}
+	return matchingValue
+}
+
+Get_MatchingIndex_From_Object_Using_Value(obj, specifiedValue) {
+	matchingIndex := ""
+	for index, value in obj {
+		if (value = specifiedValue) {
+			matchingIndex := index
+			Break
+		}
+	}
+	return matchingIndex
+}
+
+IsDigit(str) {
+	if str is digit
+		return true
+	return false
+}
+
+IsHex(str) {
+	if str is xdigit
+		return true
+	return false
+}
+
+IsSpace(str) {
+	if str is Space
+		return true
+	return false
+}
+
 IsInteger(str) {
 	str2 := Round(str)
 	str := (str=str2)?(str2):(str) ; Fix trailing zeroes
@@ -209,16 +568,16 @@ StringContains(string, match) {
 		return true
 }
 
-Get_TextCtrlSize(txt, fontName, fontSize, maxWidth="") {
+Get_TextCtrlSize(txt, fontName, fontSize, maxWidth="", params="", ctrlType="Text") {
 /*		Create a control with the specified text to retrieve
  *		the space (width/height) it would normally take
 */
 	Gui, GetTextSize:Destroy
 	Gui, GetTextSize:Font, S%fontSize%,% fontName
 	if (maxWidth) 
-		Gui, GetTextSize:Add, Text,x0 y0 +Wrap w%maxWidth% hwndTxtHandler,% txt
+		Gui, GetTextSize:Add, %ctrlType%,x0 y0 +Wrap w%maxWidth% hwndTxtHandler,% txt
 	else 
-		Gui, GetTextSize:Add, Text,x0 y0 hwndTxtHandler,% txt
+		Gui, GetTextSize:Add, %ctrlType%,x0 y0 %params% hwndTxtHandler,% txt
 	coords := Get_ControlCoords("GetTextSize", TxtHandler)
 	Gui, GetTextSize:Destroy
 

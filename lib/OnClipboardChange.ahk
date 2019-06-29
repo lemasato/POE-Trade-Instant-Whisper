@@ -1,74 +1,73 @@
 ﻿OnClipboardChange_Func(_Type) {
 	global PROGRAM, GAME
-	global LAST_GAME_PID
-	global WAIT_MODIFIER_UP, CANCEL_WHISPER
-	global WHISPER_HISTORY
+	global LASTACTIVATED_GAMEPID
+	global AUTOWHISPER_HISTORY, AUTOWHISPER_WAITKEYUP, AUTOWHISPER_CANCEL
 	static isFunctionRunning, previousStr
 
-	maxHistory := PROGRAM.SETTINGS.WHISPERS_MAX_HISTORY
-	chatKeyVK := GAME.SETTINGS.CHATKEY_VK
-	isModKeyEnabled := PROGRAM.SETTINGS.MODIFIER_KEY_ENABLE
-	modKeyVK := PROGRAM.SETTINGS.MODIFIER_KEY_VK
+	if !IsObject(AUTOWHISPER_HISTORY)
+		AUTOWHISPER_HISTORY := []
 
-	if (isFunctionRunning || ( (Clipboard && previousStr) && (Clipboard = previousStr) )) {
+	maxHistory := 5
+	chatKeyVK := GAME.SETTINGS.ChatKey_VK
+	isEnabled := "True"
+	modKeyVK := "0x11" ; CTRL
+
+	if (isFunctionRunning || isEnabled != "True")
 		Return
-	}
 
 	isFunctionRunning := True, clipboardStr := Clipboard
-	if !Is_TradingWhisper(clipboardStr) { ; Not a trading whisper, cancel
+	if !IsTradingWhisper(clipboardStr) { ; Not a trading whisper, cancel
 		GoSub OnClipboardChange_Func_Finished
 		Return
 	}
-
+	
 	; Check if whisper is in history
-	isWhisperInHistory := IsIn_WhisperHistory(clipboardStr)
-
-	if (isModKeyEnabled) { ; Key is enabled. Wait until its up to send whisper
-		isModKeyDown := GetKeyState("VK" modKeyVK, "P")
-		if !(isModKeyDown) {
-			GoSub OnClipboardChange_Func_Finished
-			Return
-		}
-		if (isWhisperInHistory) { ; whisper sent not long ago, cancel
-			ShowToolTip("Whisper has been sent within`nthe last " maxHistory " previous whispers`n`nOperation canceled.", 6500)
-			GoSub OnClipboardChange_Func_Finished
-			Return
-		}
-		ShowToolTip("Whisper will be sent upon releasing the modifier key.`nPress [ SPACE ] to cancel.")
-		WAIT_MODIFIER_UP := True
-		KeyWait, VK%modKeyVK%, U
-		RemoveToolTip()
-		WAIT_MODIFIER_UP := False
-	}
-	else { ; Key is disabled, just send whisper
-		if (isWhisperInHistory) { ; whisper sent not long ago, cancel
-			ShowToolTip("Whisper has been sent within`nthe last " maxHistory " previous whispers`n`nOperation canceled.", 6500)
-			GoSub OnClipboardChange_Func_Finished
-			Return
+	for histID, histContent in AUTOWHISPER_HISTORY {
+		if (clipboardStr = histContent) { ; whisper is in history
+			isWhisperInHistory := True
+			Break
 		}
 	}
 
-	if (CANCEL_WHISPER) {
-		CANCEL_WHISPER := False
+	isModKeyDown := GetKeyState("VK" modKeyVK, "P")
+	if !(isModKeyDown) {
 		GoSub OnClipboardChange_Func_Finished
 		Return
 	}
+	if (isWhisperInHistory) { ; whisper sent not long ago, cancel
+		ShowToolTip(PROGRAM.NAME "`nThis whisper was sent within`nthe last " maxHistory " previous whispers`nOperation canceled.")
+		GoSub OnClipboardChange_Func_Finished
+		Return
+	}
+	ShowToolTip(PROGRAM.NAME "`nThis whisper will be sent upon releasing CTRL.`nPress [ SPACE ] to cancel.")
+	AUTOWHISPER_WAITKEYUP := True
+	KeyWait, VK%modKeyVK%, U
+	RemoveToolTip()
+	AUTOWHISPER_WAITKEYUP := False
 
-	; Activating game window
-	if (LAST_GAME_PID)
-		hasError := Activate_GameWindow(LAST_GAME_PID)
-	else
-		hasError := Activate_GameWindow()
-	if (hasError) {
+	if (AUTOWHISPER_CANCEL) {
+		AUTOWHISPER_CANCEL := False
 		GoSub OnClipboardChange_Func_Finished
 		Return
 	}
 
 	; Sending the message
-	Send_InGameMessage(clipboardStr)
+	err := Send_GameMessage("WRITE_SEND", clipboardStr, LASTACTIVATED_GAMEPID)
+	if (err) {
+		ShowToolTip(PROGRAM.NAME " - " err "`nFailed to send the whisper in-game.")
+		Return
+	}
 
-	; Update WHISPER_HISTORY array
-	AddTo_WhisperHistory(clipboardStr)
+	; Update AUTOWHISPER_HISTORY array
+	if (AUTOWHISPER_HISTORY.MaxIndex() >= maxHistory) { ; Re-organize previous whispers array
+		Loop % AUTOWHISPER_HISTORY.MaxIndex() {
+			if (A_Index < maxHistory)
+				AUTOWHISPER_HISTORY[A_Index] := AUTOWHISPER_HISTORY[A_Index+1]
+			else
+				AUTOWHISPER_HISTORY.RemoveAt(A_Index)
+		}
+	}
+	AUTOWHISPER_HISTORY.Push(clipboardStr) ; Add whisper to array
 
 	previousStr := clipboardStr
 	GoSub OnClipboardChange_Func_Finished

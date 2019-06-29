@@ -7,7 +7,7 @@
 
 ReloadWithParams(params, getCurrentParams=False, asAdmin=False) {
 	if (getCurrentParams) {
-		params .= Get_CmdLineParameters()
+		params .= " " Get_CmdLineParameters()
 	}
 
 	if (asAdmin)

@@ -1,9 +1,16 @@
-# Testing tools
-/_Archive
+# =========================
+# Testing tools folder
+# =========================
 
+/__*
+
+# =========================
 # Resources source files
+# =========================
+
 *.sfd
 *.psd
+resources/fonts/*/*
 
 # =========================
 # Default .gitignore

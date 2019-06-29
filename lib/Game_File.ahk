@@ -9,9 +9,7 @@
 
 	if !FileExist(gameFile) {
 		AppendtoLogs("File Not Found: """ gameFile """")
-		MsgBox(4096, PROGRAM.NAME, "Your production_Config.ini file could not be found!"
-			. "`nThis file contains all of your Path of Exile settings and is neccesary for us to retrieve your chat key."
-			. "`nYou will still be able to use " PROGRAM.NAME " but your chat key will be considered as ENTER.")
+		MsgBox(4096, PROGRAM.NAME, "Your production_Config.ini file could not be found!`nThis file contains all of your Path of Exile settings and is necessary for us to retrieve your chat key.`nYou will still be able to use this tool but your chat key will be considered as ENTER.")
 	}
 
 	FileRead, fileContent,% gameFile
@@ -40,16 +38,31 @@
 		FileEncoding,% fileEncode
 	}
 
+	INI.Remove(gameFileCopy, "LOGIN", "username")
+
 	chatKeySC := INI.Get(gameFileCopy, "ACTION_KEYS", "chat")
 	fullscreen := INI.Get(gameFileCopy, "DISPLAY", "fullscreen")
-
+	borderless :=  INI.Get(gameFileCopy, "DISPLAY", "borderless_windowed_fullscreen")
+	height := INI.Get(gameFileCopy, "DISPLAY", "resolution_height")
+	width:= INI.Get(gameFileCopy, "DISPLAY", "resolution_width")
+	
 	chatKeyVK := StringToHex(chr(chatKeySC+0))
 	chatKeyName := GetKeyName("VK" chatKeyVK)
+
+	AppendToLogs("Retrieved settings from game file."
+	. "Chat key: " """" chatKeySC """" . "   VK: " """" chatKeyVK """" . "   SC: " """" chatKeyName """"
+	. "Fullscreen: " fullscreen
+	. "Borderless: " borderless
+	. "Height: " height
+	. "Width: " width)
 
 	returnObj := { ChatKey_SC: chatKeySC
 				  ,ChatKey_VK:chatKeyVK
 				  ,ChatKey_Name: chatKeyName
-				  ,Fullscreen: fullscreen }
+				  ,Fullscreen: fullscreen
+				  ,Borderless: borderless
+				  ,Height: height
+				  ,Width: width}
 
 	return returnObj
 }
@@ -57,8 +70,7 @@
 Declare_GameSettings(settingsObj) {
 	global GAME
 
-	if !(GAME.SETTINGS)
-		GAME.SETTINGS := {}
+	GAME["SETTINGS"] := {}
 
 	; for iniSection, nothing in settingsObj {
 		; GAME["SETTINGS"][iniSection] := {}

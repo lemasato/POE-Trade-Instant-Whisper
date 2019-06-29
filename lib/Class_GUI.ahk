@@ -75,11 +75,12 @@ Class GUI {
 		global
 		local opts
 
+		; Set values
+		size := (size)?(size):(10)
+		qual := (qual)?(qual):(5)
+
 		; Add the prefixes
-		if (size)
-			opts .= " S" size
-		if (qual)
-			opts .= " Q" qual
+		opts .= " S" size " Q" qual
 
 		; Set the default font settings
 		Gui, %name%:Font, %opts%, %font%
@@ -96,16 +97,23 @@ Class GUI {
 		Gui, %name%:Margin, %xMargin%, %yMargin%
 	}
 
-	Color(name, _color) {
+	Color(name, _winColor="", _ctrlColor="") {
 		global
 
-		Gui, %name%:Color, %_color%
-		Gui%name%["Background_Color"] := _color
+		if (_winColor != "" && _ctrlColor="")
+			Gui, %name%:Color, %_winColor%
+		else if (_winColor = "" && _ctrlColor != "")
+			Gui, %name%:Color, , %_ctrlColor%
+		else if (_winColor != "" && _ctrlColor != "")
+			Gui, %name%:Color, %_winColor%, %_ctrlColor%
+
+		Gui%name%["Background_Color"] := _winColor!=""?_winColor : Gui%name%["Background_Color"]
+		Gui%name%["Controls_Color"] := _ctrlColor!=""?_ctrlColor : Gui%name%["Controls_Color"]
 	}
 
-	Add(name, type, opts="", content="") {
+	Add(name, type, opts="", content="", imageBtnStyle="", imageBtnFontHandle="", imageBtnFontSize="") {
 		static
-		local Specials := ["FontSize", "FontQual", "Font"]
+		local Specials := ["FontSize", "FontQual", "Font", "CheckState", "ControlChooseString"]
 		local SpecialParams := {}
 
 		local Statics := ["Hwnd", "V"]
@@ -125,9 +133,10 @@ Class GUI {
 				local paramName := SubStr(opt, 1, len)
 				local paramValue := SubStr(opt, len+1)
 
-
 				if (paramName = special) {
 					opts := StrReplace(opts, opt, "")
+					if (paramName = "CheckedState") ; Make sure to have 0 or 1
+						paramValue := (paramValue=1)?(1):(0)
 					SpecialParams[paramName] := paramValue
 					Break
 				}
@@ -167,7 +176,17 @@ Class GUI {
 		}
 
 		; Add gui control
-		Gui, %name%:Add, %type%, %opts% %pHwnd%%vHwnd% %pV%%vV%, %content%
+		try {
+			if (type = "ImageButton") {
+				Gui, %name%:Add, Button, %opts% %pHwnd%%vHwnd% %pV%%vV%, %content%
+			}
+			else
+				Gui, %name%:Add, %type%, %opts% %pHwnd%%vHwnd% %pV%%vV%, %content%
+		}
+		catch e {
+			MsgBox,% 4096+16, %A_ScriptName%,% "Class_GUI.ahk:" . "`nFailed to create control."	. "`n" . "`nMessage: " e.Message . "`nExtra: " e.Extra
+				. "`n" . "`nGUI Name: " name . "`nControl type: " type . "`nOptions: " opts . "`nControl handle: " vHwnd . "`nControl variable: " vV . "`nContent: " content
+		}
 
 		; Add handle if existing
 		if (vHwnd) {
@@ -176,8 +195,27 @@ Class GUI {
 
 		; Restore font
 		if (hasFontParams) {
-			Gui, %name%:Font,% "S" Gui%name%_FontSettings.FontSize " Q" Gui%name%_FontSettings.FontQual,% Gui%name%_FontSettings.Font
+			Gui, %name%:Font,% "S" Gui%name%.Font_Size " Q" Gui%name%.Font_Qual,% Gui%name%.Font
 		}
+
+		; Check box
+		if (SpecialParams.CheckState = 0 || SpecialParams.CheckState = 1) {
+			GuiControl, %name%:,% Gui%name%_Controls[vHwnd],% SpecialParams.CheckState
+		}
+
+		; Control choose
+		if (SpecialParams.ControlChooseString) {
+			param := SpecialParams.ControlChooseString
+			param := StrReplace(param, "%A_Space%", " ")
+			GuiControl, %name%:ChooseString,% Gui%name%_Controls[vHwnd],% param
+		}
+
+		if (type = "ImageButton") {
+			if !ImageButton.Create(GUI.GetGlobal(name, "Controls", vHwnd), imageBtnStyle, imageBtnFontHandle, imageBtnFontSize)
+				return "[GUI_" name "] " vHwnd ": " ImageButton.LastError "`n"
+		}
+
+
 	}
 
 	Show(name, opts="", title="") {
