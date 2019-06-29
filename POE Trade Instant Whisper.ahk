@@ -3,7 +3,7 @@
 *					POE Trade Instant Whisper																														*
 *					Instantly send a poe.trade or poeapp.com whisper when holding CTRL upon copy															*
 *																																								*
-*					https://github.com/lemasato/POE-Trades-Companion/																							*
+*					https://github.com/lemasato/POE-Trade-Instant-Whisper/																							*
 *																																								*	
 *	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
 */
@@ -113,7 +113,7 @@ Start_Script() {
 	PROGRAM.LINK_CHANGELOG 			:= "https://raw.githubusercontent.com/lemasato/POE-Trade-Instant-Whisper/master/resources/changelog.txt"
 
 	PROGRAM.LINK_REDDIT 			:= "https://www.reddit.com/user/lemasato/submitted/"
-	PROGRAM.LINK_GITHUB 			:= "https://github.com/lemasato/POE-Trades-Companion"
+	PROGRAM.LINK_GITHUB 			:= "https://github.com/lemasato/POE-Trade-Instant-Whisper"
 	PROGRAM.LINK_SUPPORT 			:= "https://www.paypal.me/masato/"
 	PROGRAM.LINK_DISCORD 			:= "https://discord.gg/UMxqtfC"
 

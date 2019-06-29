@@ -22,8 +22,8 @@ ver := StrReplace(ver, "_", "99.") ; If _ detected (beta), use 99 as ver
 StringReplace ver,ver,`.,`.,UseErrorLevel
 
 ; Main executable
-ToolTip, Compiling POE Trades Companion.exe
-CompileFile(A_ScriptDir "\POE Trades Companion.ahk", A_ScriptDir "\POE Trades Companion.exe")
+ToolTip, Compiling POE Trade Instant Whisper.exe
+CompileFile(A_ScriptDir "\POE Trade Instant Whisper.ahk", A_ScriptDir "\POE Trade Instant Whisper.exe")
 ; CompileFile(A_ScriptDir "\POE Trades Companion.ahk", A_ScriptDir "\POE Trades Companion.exe", "POE Trades Companion", ver, "© lemasato.github.io " A_YYYY)
 
 ; Updater file 
@@ -33,7 +33,7 @@ CompileFile(A_ScriptDir "\POE Trades Companion.ahk", A_ScriptDir "\POE Trades Co
 
 ; Updater file v2
 ; ToolTip, Updater_v2.exe
-CompileFile(A_ScriptDir "\Updater_v2.ahk", A_ScriptDir "\Updater_v2.exe")
+; CompileFile(A_ScriptDir "\Updater_v2.ahk", A_ScriptDir "\Updater_v2.exe")
 ; CompileFile(A_ScriptDir "\Updater_v2.ahk", A_ScriptDir "\Updater_v2.exe", "POE Trades Companion: Updater", "2.1", "© lemasato.github.io " A_YYYY)
 
 

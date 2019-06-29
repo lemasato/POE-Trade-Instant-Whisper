@@ -182,13 +182,13 @@ DownloadAndRunUpdater(dl="") {
 		updateFolder := PROGRAM.MAIN_FOLDER "\_UPDATE"
 		FileRemoveDir,% updateFolder, 1
 		Extract2Folder(PROGRAM.MAIN_FOLDER "\Source.zip", updateFolder)
-		if FileExist(PROGRAM.MAIN_FOLDER "\_UPDATE\POE Trades Companion.ahk") {
+		if FileExist(PROGRAM.MAIN_FOLDER "\_UPDATE\POE Trade Instant Whisper.ahk") {
 			folder := updateFolder
 		}
 		else {
 			Loop, Files,% updateFolder "\*", RD
 			{
-				if FileExist(A_LoopFileFullPath "\POE Trades Companion.ahk") {
+				if FileExist(A_LoopFileFullPath "\POE Trade Instant Whisper.ahk") {
 					folder := A_LoopFileFullPath
 					Break
 				}

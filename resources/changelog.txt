@@ -1,5 +1,5 @@
 v0.2 (30 June 2019)
-	- Updated to work with new whisper as per user request.
+	- Updated to work with new whisper patterns as per user request.
 
 v0.1 (17 Jan 2017)
 	- Initially published on GitHub.
